@@ -903,10 +903,17 @@ async def handle_tool(name: str, args: dict[str, Any]) -> Any:
         target = args["process"]
         try:
             pid = int(target)
-            process = device.get_process(pid)
+            # Find process by PID
+            for p in device.enumerate_processes():
+                if p.pid == pid:
+                    return {"pid": p.pid, "name": p.name, "parameters": dict(p.parameters)}
+            raise ValueError(f"Process with PID {pid} not found")
         except ValueError:
-            process = device.get_process(target)
-        return {"pid": process.pid, "name": process.name, "parameters": dict(process.parameters)}
+            if not str(target).isdigit():
+                # Find by name
+                process = device.get_process(target)
+                return {"pid": process.pid, "name": process.name, "parameters": dict(process.parameters)}
+            raise
     
     elif name == "frida_spawn":
         device = get_device(args.get("device_id"), args.get("device_type", "local"))
@@ -1127,16 +1134,16 @@ async def handle_tool(name: str, args: dict[str, Any]) -> Any:
         
         read_code = f"""
         rpc.exports = {{
-            read: function() {{
-                var ptr = ptr('{address}');
-                return Memory.readByteArray(ptr, {size});
+            doRead: function() {{
+                var addr = new NativePointer('{address}');
+                return addr.readByteArray({size});
             }}
         }};
         """
         
         script = session.create_script(read_code)
         script.load()
-        data = script.exports_sync.read()
+        data = script.exports_sync.do_read()
         script.unload()
         
         return {"address": address, "size": size, "data": data.hex() if data else None}
@@ -1155,9 +1162,9 @@ async def handle_tool(name: str, args: dict[str, Any]) -> Any:
         
         write_code = f"""
         rpc.exports = {{
-            write: function(data) {{
-                var ptr = ptr('{address}');
-                Memory.writeByteArray(ptr, data);
+            doWrite: function(data) {{
+                var addr = new NativePointer('{address}');
+                addr.writeByteArray(data);
                 return true;
             }}
         }};
@@ -1165,7 +1172,7 @@ async def handle_tool(name: str, args: dict[str, Any]) -> Any:
         
         script = session.create_script(write_code)
         script.load()
-        result = script.exports_sync.write(list(data_bytes))
+        result = script.exports_sync.do_write(list(data_bytes))
         script.unload()
         
         return {"address": address, "bytes_written": len(data_bytes), "success": result}
@@ -2219,28 +2226,38 @@ async def handle_tool(name: str, args: dict[str, Any]) -> Any:
         
         call_code = f"""
         rpc.exports = {{
-            call: function() {{
+            doCall: function() {{
                 var addr;
                 var addrStr = '{address}';
                 if (addrStr.indexOf('!') !== -1) {{
                     var parts = addrStr.split('!');
-                    addr = Module.findExportByName(parts[0], parts[1]);
+                    var mod = Process.getModuleByName(parts[0]);
+                    addr = mod.findExportByName(parts[1]);
                 }} else {{
-                    addr = ptr(addrStr);
+                    addr = new NativePointer(addrStr);
+                }}
+                
+                if (!addr || addr.isNull()) {{
+                    return {{error: 'Function not found: ' + addrStr}};
                 }}
                 
                 var argTypes = {arg_types_js};
+                var callArgs = {call_args_js};
                 var fn = new NativeFunction(addr, '{return_type}', argTypes);
-                var args = {call_args_js};
-                var result = fn.apply(null, args);
-                return result ? result.toString() : null;
+                var result;
+                if (callArgs.length === 0) {{
+                    result = fn();
+                }} else {{
+                    result = fn.apply(null, callArgs);
+                }}
+                return result !== undefined ? result.toString() : null;
             }}
         }};
         """
         
         script = session.create_script(call_code)
         script.load()
-        result = script.exports_sync.call()
+        result = script.exports_sync.do_call()
         script.unload()
         
         return {"result": result, "address": address}
