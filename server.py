@@ -29,7 +29,8 @@ try:
     )
 except ImportError:
     print("Installing mcp package...", file=sys.stderr)
-    os.system("pip3 install --break-system-packages mcp")
+    import subprocess
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "mcp"])
     from mcp.server import Server
     from mcp.server.stdio import stdio_server
     from mcp.types import (
@@ -38,7 +39,14 @@ except ImportError:
         CallToolResult,
     )
 
-import frida
+# Frida import with auto-install
+try:
+    import frida
+except ImportError:
+    print("Installing frida package...", file=sys.stderr)
+    import subprocess
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "frida", "frida-tools"])
+    import frida
 
 # Global state
 _device_cache: dict[str, frida.core.Device] = {}
