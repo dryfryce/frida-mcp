@@ -87,13 +87,150 @@ def get_device(device_id: Optional[str] = None, device_type: str = "local") -> f
 # ============================================
 
 TOOLS = [
-    # Device Discovery
+    # Device Discovery & Remote Management
     Tool(
         name="frida_list_devices",
         description="List all available Frida devices (local, USB, remote). Returns device ID, name, and type.",
         inputSchema={
             "type": "object",
             "properties": {},
+            "required": []
+        }
+    ),
+    Tool(
+        name="frida_add_remote_device",
+        description="Add a remote Frida server connection. Use this to connect to frida-server running on Android/iOS devices over the network.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "host": {"type": "string", "description": "Remote host IP or hostname (e.g., '192.168.1.100' or 'localhost')"},
+                "port": {"type": "integer", "description": "Frida server port (default: 27042)", "default": 27042},
+                "certificate": {"type": "string", "description": "TLS certificate for secure connection (optional)"},
+                "origin": {"type": "string", "description": "Origin header for connection (optional)"},
+                "token": {"type": "string", "description": "Authentication token (optional)"},
+                "keepalive_interval": {"type": "integer", "description": "Keepalive interval in seconds (optional)"}
+            },
+            "required": ["host"]
+        }
+    ),
+    Tool(
+        name="frida_remove_remote_device",
+        description="Remove a previously added remote Frida server connection.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "host": {"type": "string", "description": "Remote host IP or hostname"},
+                "port": {"type": "integer", "description": "Frida server port (default: 27042)", "default": 27042}
+            },
+            "required": ["host"]
+        }
+    ),
+    
+    # ADB Integration (Android)
+    Tool(
+        name="adb_devices",
+        description="List all Android devices connected via ADB. Requires adb in PATH.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "adb_path": {"type": "string", "description": "Custom path to adb executable (optional)"}
+            },
+            "required": []
+        }
+    ),
+    Tool(
+        name="adb_forward",
+        description="Set up ADB port forwarding for Frida server. Forwards local port to device's frida-server port.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "local_port": {"type": "integer", "description": "Local port to forward from (e.g., 27042)"},
+                "remote_port": {"type": "integer", "description": "Remote port on device (default: 27042)", "default": 27042},
+                "device_serial": {"type": "string", "description": "Target device serial (optional, uses first device if not specified)"},
+                "adb_path": {"type": "string", "description": "Custom path to adb executable (optional)"}
+            },
+            "required": ["local_port"]
+        }
+    ),
+    Tool(
+        name="adb_reverse",
+        description="Set up ADB reverse port forwarding. Makes a local port accessible on the Android device.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "remote_port": {"type": "integer", "description": "Port on Android device"},
+                "local_port": {"type": "integer", "description": "Local port to forward to"},
+                "device_serial": {"type": "string", "description": "Target device serial (optional)"},
+                "adb_path": {"type": "string", "description": "Custom path to adb executable (optional)"}
+            },
+            "required": ["remote_port", "local_port"]
+        }
+    ),
+    Tool(
+        name="adb_shell",
+        description="Execute a shell command on an Android device via ADB.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "command": {"type": "string", "description": "Shell command to execute"},
+                "device_serial": {"type": "string", "description": "Target device serial (optional)"},
+                "adb_path": {"type": "string", "description": "Custom path to adb executable (optional)"}
+            },
+            "required": ["command"]
+        }
+    ),
+    Tool(
+        name="adb_push",
+        description="Push a file to an Android device.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "local_path": {"type": "string", "description": "Local file path"},
+                "remote_path": {"type": "string", "description": "Destination path on device"},
+                "device_serial": {"type": "string", "description": "Target device serial (optional)"},
+                "adb_path": {"type": "string", "description": "Custom path to adb executable (optional)"}
+            },
+            "required": ["local_path", "remote_path"]
+        }
+    ),
+    Tool(
+        name="adb_pull",
+        description="Pull a file from an Android device.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "remote_path": {"type": "string", "description": "File path on device"},
+                "local_path": {"type": "string", "description": "Local destination path"},
+                "device_serial": {"type": "string", "description": "Target device serial (optional)"},
+                "adb_path": {"type": "string", "description": "Custom path to adb executable (optional)"}
+            },
+            "required": ["remote_path", "local_path"]
+        }
+    ),
+    Tool(
+        name="adb_install",
+        description="Install an APK on an Android device.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "apk_path": {"type": "string", "description": "Path to APK file"},
+                "reinstall": {"type": "boolean", "description": "Reinstall if already installed", "default": False},
+                "device_serial": {"type": "string", "description": "Target device serial (optional)"},
+                "adb_path": {"type": "string", "description": "Custom path to adb executable (optional)"}
+            },
+            "required": ["apk_path"]
+        }
+    ),
+    Tool(
+        name="frida_server_start",
+        description="Start frida-server on an Android device via ADB. Pushes frida-server if needed.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "device_serial": {"type": "string", "description": "Target device serial (optional)"},
+                "frida_server_path": {"type": "string", "description": "Local path to frida-server binary (optional, will download if not provided)"},
+                "adb_path": {"type": "string", "description": "Custom path to adb executable (optional)"}
+            },
             "required": []
         }
     ),
@@ -880,10 +1017,242 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 async def handle_tool(name: str, args: dict[str, Any]) -> Any:
     """Route tool calls to handlers."""
     
-    # Device Discovery
+    # Device Discovery & Remote Management
     if name == "frida_list_devices":
         devices = frida.enumerate_devices()
         return [{"id": d.id, "name": d.name, "type": d.type} for d in devices]
+    
+    elif name == "frida_add_remote_device":
+        host = args["host"]
+        port = args.get("port", 27042)
+        
+        # Build options
+        device_manager = frida.get_device_manager()
+        
+        # Add remote device with optional parameters
+        try:
+            device = device_manager.add_remote_device(
+                f"{host}:{port}",
+                certificate=args.get("certificate"),
+                origin=args.get("origin"),
+                token=args.get("token"),
+                keepalive_interval=args.get("keepalive_interval")
+            )
+            _device_cache[f"{host}:{port}"] = device
+            return {
+                "status": "connected",
+                "device_id": device.id,
+                "name": device.name,
+                "type": device.type,
+                "host": host,
+                "port": port
+            }
+        except Exception as e:
+            return {"status": "error", "error": str(e), "host": host, "port": port}
+    
+    elif name == "frida_remove_remote_device":
+        host = args["host"]
+        port = args.get("port", 27042)
+        device_manager = frida.get_device_manager()
+        
+        try:
+            device_manager.remove_remote_device(f"{host}:{port}")
+            cache_key = f"{host}:{port}"
+            if cache_key in _device_cache:
+                del _device_cache[cache_key]
+            return {"status": "removed", "host": host, "port": port}
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+    
+    # ADB Integration
+    elif name == "adb_devices":
+        import subprocess
+        adb = args.get("adb_path", "adb")
+        try:
+            result = subprocess.run([adb, "devices", "-l"], capture_output=True, text=True, timeout=10)
+            lines = result.stdout.strip().split("\n")[1:]  # Skip header
+            devices = []
+            for line in lines:
+                if line.strip():
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        serial = parts[0]
+                        status = parts[1]
+                        info = " ".join(parts[2:]) if len(parts) > 2 else ""
+                        devices.append({"serial": serial, "status": status, "info": info})
+            return {"devices": devices}
+        except FileNotFoundError:
+            return {"error": "adb not found. Install Android SDK platform-tools or specify adb_path."}
+        except subprocess.TimeoutExpired:
+            return {"error": "adb command timed out"}
+    
+    elif name == "adb_forward":
+        import subprocess
+        adb = args.get("adb_path", "adb")
+        local_port = args["local_port"]
+        remote_port = args.get("remote_port", 27042)
+        serial = args.get("device_serial")
+        
+        cmd = [adb]
+        if serial:
+            cmd.extend(["-s", serial])
+        cmd.extend(["forward", f"tcp:{local_port}", f"tcp:{remote_port}"])
+        
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+            if result.returncode == 0:
+                return {"status": "success", "local_port": local_port, "remote_port": remote_port, "hint": f"Now use frida_add_remote_device with host='127.0.0.1' port={local_port}"}
+            else:
+                return {"status": "error", "error": result.stderr.strip()}
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+    
+    elif name == "adb_reverse":
+        import subprocess
+        adb = args.get("adb_path", "adb")
+        remote_port = args["remote_port"]
+        local_port = args["local_port"]
+        serial = args.get("device_serial")
+        
+        cmd = [adb]
+        if serial:
+            cmd.extend(["-s", serial])
+        cmd.extend(["reverse", f"tcp:{remote_port}", f"tcp:{local_port}"])
+        
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+            if result.returncode == 0:
+                return {"status": "success", "remote_port": remote_port, "local_port": local_port}
+            else:
+                return {"status": "error", "error": result.stderr.strip()}
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+    
+    elif name == "adb_shell":
+        import subprocess
+        adb = args.get("adb_path", "adb")
+        command = args["command"]
+        serial = args.get("device_serial")
+        
+        cmd = [adb]
+        if serial:
+            cmd.extend(["-s", serial])
+        cmd.extend(["shell", command])
+        
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            return {
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "returncode": result.returncode
+            }
+        except subprocess.TimeoutExpired:
+            return {"error": "Command timed out"}
+        except Exception as e:
+            return {"error": str(e)}
+    
+    elif name == "adb_push":
+        import subprocess
+        adb = args.get("adb_path", "adb")
+        local_path = args["local_path"]
+        remote_path = args["remote_path"]
+        serial = args.get("device_serial")
+        
+        cmd = [adb]
+        if serial:
+            cmd.extend(["-s", serial])
+        cmd.extend(["push", local_path, remote_path])
+        
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            return {"status": "success" if result.returncode == 0 else "error", "output": result.stdout + result.stderr}
+        except Exception as e:
+            return {"error": str(e)}
+    
+    elif name == "adb_pull":
+        import subprocess
+        adb = args.get("adb_path", "adb")
+        remote_path = args["remote_path"]
+        local_path = args["local_path"]
+        serial = args.get("device_serial")
+        
+        cmd = [adb]
+        if serial:
+            cmd.extend(["-s", serial])
+        cmd.extend(["pull", remote_path, local_path])
+        
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            return {"status": "success" if result.returncode == 0 else "error", "output": result.stdout + result.stderr}
+        except Exception as e:
+            return {"error": str(e)}
+    
+    elif name == "adb_install":
+        import subprocess
+        adb = args.get("adb_path", "adb")
+        apk_path = args["apk_path"]
+        reinstall = args.get("reinstall", False)
+        serial = args.get("device_serial")
+        
+        cmd = [adb]
+        if serial:
+            cmd.extend(["-s", serial])
+        cmd.append("install")
+        if reinstall:
+            cmd.append("-r")
+        cmd.append(apk_path)
+        
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            return {"status": "success" if result.returncode == 0 else "error", "output": result.stdout + result.stderr}
+        except Exception as e:
+            return {"error": str(e)}
+    
+    elif name == "frida_server_start":
+        import subprocess
+        adb = args.get("adb_path", "adb")
+        serial = args.get("device_serial")
+        frida_server_path = args.get("frida_server_path")
+        
+        def run_adb(adb_args, timeout=10):
+            cmd = [adb]
+            if serial:
+                cmd.extend(["-s", serial])
+            cmd.extend(adb_args)
+            return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        
+        try:
+            # Check if frida-server is already running
+            check = run_adb(["shell", "pidof frida-server"])
+            if check.stdout.strip():
+                return {"status": "already_running", "pid": check.stdout.strip()}
+            
+            # Check if frida-server exists on device
+            check_exists = run_adb(["shell", "ls /data/local/tmp/frida-server"])
+            if "No such file" in check_exists.stderr:
+                if frida_server_path:
+                    # Push frida-server
+                    push_result = run_adb(["push", frida_server_path, "/data/local/tmp/frida-server"], timeout=60)
+                    if push_result.returncode != 0:
+                        return {"error": f"Failed to push frida-server: {push_result.stderr}"}
+                    run_adb(["shell", "chmod 755 /data/local/tmp/frida-server"])
+                else:
+                    return {"error": "frida-server not found on device. Provide frida_server_path to upload it."}
+            
+            # Start frida-server in background
+            run_adb(["shell", "nohup /data/local/tmp/frida-server &"])
+            
+            # Verify it started
+            import time
+            time.sleep(1)
+            verify = run_adb(["shell", "pidof frida-server"])
+            if verify.stdout.strip():
+                return {"status": "started", "pid": verify.stdout.strip()}
+            else:
+                return {"status": "error", "error": "frida-server failed to start"}
+                
+        except Exception as e:
+            return {"error": str(e)}
     
     elif name == "frida_get_device_info":
         device = get_device(args.get("device_id"), args.get("device_type", "local"))
