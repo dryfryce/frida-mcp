@@ -1,11 +1,11 @@
 {
-  "name": "frida-mcp",
+  "name": "frida-pro-mcp",
   "version": "1.0.0",
   "description": "MCP server exposing Frida dynamic instrumentation toolkit",
   "main": "dist/index.js",
   "type": "module",
   "bin": {
-    "frida-mcp": "./dist/index.js"
+    "frida-pro-mcp": "./dist/index.js"
   },
   "scripts": {
     "build": "tsc",
