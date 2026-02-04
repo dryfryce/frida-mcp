@@ -672,6 +672,182 @@ TOOLS = [
             "required": ["apk_path"]
         }
     ),
+    
+    # NEW: Memory Management
+    Tool(
+        name="frida_memory_alloc",
+        description="Allocate memory in the target process. Returns the address of allocated memory.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string"},
+                "size": {"type": "integer", "description": "Number of bytes to allocate"},
+                "protection": {"type": "string", "description": "Memory protection (e.g., 'rwx', 'rw-')", "default": "rw-"}
+            },
+            "required": ["session_id", "size"]
+        }
+    ),
+    Tool(
+        name="frida_memory_protect",
+        description="Change memory protection/permissions for a memory region.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string"},
+                "address": {"type": "string", "description": "Memory address (hex string)"},
+                "size": {"type": "integer", "description": "Size of region"},
+                "protection": {"type": "string", "description": "New protection (e.g., 'rwx', 'r-x')"}
+            },
+            "required": ["session_id", "address", "size", "protection"]
+        }
+    ),
+    Tool(
+        name="frida_enumerate_ranges",
+        description="Enumerate memory ranges/maps in the process with their protections.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string"},
+                "protection": {"type": "string", "description": "Filter by protection (e.g., 'r--', 'rwx')", "default": "---"}
+            },
+            "required": ["session_id"]
+        }
+    ),
+    
+    # NEW: Thread Operations
+    Tool(
+        name="frida_enumerate_threads",
+        description="List all threads in the process with their state and context.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string"}
+            },
+            "required": ["session_id"]
+        }
+    ),
+    Tool(
+        name="frida_backtrace",
+        description="Get stack backtrace for a thread. Useful for debugging and analysis.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string"},
+                "thread_id": {"type": "integer", "description": "Thread ID (0 for current thread)", "default": 0},
+                "limit": {"type": "integer", "description": "Max frames to return", "default": 20}
+            },
+            "required": ["session_id"]
+        }
+    ),
+    
+    # NEW: Symbol Resolution
+    Tool(
+        name="frida_debug_symbol",
+        description="Resolve debug symbol information from an address or find address from symbol name.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string"},
+                "address": {"type": "string", "description": "Address to resolve (hex string)"},
+                "name": {"type": "string", "description": "Symbol name to find"}
+            },
+            "required": ["session_id"]
+        }
+    ),
+    Tool(
+        name="frida_list_symbols",
+        description="List debug symbols from a module.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string"},
+                "module": {"type": "string", "description": "Module name"},
+                "filter": {"type": "string", "description": "Filter pattern for symbol names"}
+            },
+            "required": ["session_id", "module"]
+        }
+    ),
+    
+    # NEW: Native Function Calling
+    Tool(
+        name="frida_native_function",
+        description="Call a native function directly by address or name. Specify return type and argument types.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string"},
+                "address": {"type": "string", "description": "Function address (hex) or 'module!name'"},
+                "return_type": {"type": "string", "description": "Return type: void, int, pointer, etc.", "default": "void"},
+                "arg_types": {"type": "array", "items": {"type": "string"}, "description": "Argument types"},
+                "args": {"type": "array", "description": "Argument values"}
+            },
+            "required": ["session_id", "address"]
+        }
+    ),
+    
+    # NEW: CModule (Inline C)
+    Tool(
+        name="frida_cmodule",
+        description="Compile and load inline C code for high-performance hooks. Returns symbols exported by the C code.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string"},
+                "code": {"type": "string", "description": "C source code"},
+                "symbols": {"type": "object", "description": "External symbols to link"}
+            },
+            "required": ["session_id", "code"]
+        }
+    ),
+    
+    # NEW: ObjC Method Calling
+    Tool(
+        name="frida_objc_call_method",
+        description="Call an Objective-C method on a class or instance (iOS/macOS).",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string"},
+                "class_name": {"type": "string"},
+                "method_name": {"type": "string", "description": "Method selector"},
+                "args": {"type": "array", "description": "Method arguments"},
+                "instance_handle": {"type": "string", "description": "Instance handle (for instance methods)"},
+                "static": {"type": "boolean", "default": True}
+            },
+            "required": ["session_id", "class_name", "method_name"]
+        }
+    ),
+    
+    # NEW: Java Class Loading
+    Tool(
+        name="frida_java_load_dex",
+        description="Load a DEX file dynamically into the Android runtime.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string"},
+                "dex_path": {"type": "string", "description": "Path to DEX file on device"},
+                "class_name": {"type": "string", "description": "Class to load from DEX"}
+            },
+            "required": ["session_id", "dex_path"]
+        }
+    ),
+    
+    # NEW: Socket Operations
+    Tool(
+        name="frida_socket_connect",
+        description="Create a socket connection from within the target process.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string"},
+                "host": {"type": "string"},
+                "port": {"type": "integer"},
+                "type": {"type": "string", "enum": ["tcp", "udp"], "default": "tcp"}
+            },
+            "required": ["session_id", "host", "port"]
+        }
+    ),
 ]
 
 
@@ -1788,6 +1964,449 @@ async def handle_tool(name: str, args: dict[str, Any]) -> Any:
             return {"output": result.stdout}
         except subprocess.CalledProcessError as e:
             return {"status": "error", "error": e.stderr}
+
+    # NEW: Memory Allocation
+    elif name == "frida_memory_alloc":
+        session_id = args["session_id"]
+        if session_id not in _session_cache:
+            raise ValueError(f"Session {session_id} not found")
+        
+        session = _session_cache[session_id]
+        size = args["size"]
+        protection = args.get("protection", "rw-")
+        
+        alloc_code = f"""
+        rpc.exports = {{
+            alloc: function() {{
+                var mem = Memory.alloc({size});
+                Memory.protect(mem, {size}, '{protection}');
+                return mem.toString();
+            }}
+        }};
+        """
+        
+        script = session.create_script(alloc_code)
+        script.load()
+        address = script.exports_sync.alloc()
+        script.unload()
+        
+        return {"address": address, "size": size, "protection": protection}
+
+    elif name == "frida_memory_protect":
+        session_id = args["session_id"]
+        if session_id not in _session_cache:
+            raise ValueError(f"Session {session_id} not found")
+        
+        session = _session_cache[session_id]
+        address = args["address"]
+        size = args["size"]
+        protection = args["protection"]
+        
+        protect_code = f"""
+        rpc.exports = {{
+            protect: function() {{
+                return Memory.protect(ptr('{address}'), {size}, '{protection}');
+            }}
+        }};
+        """
+        
+        script = session.create_script(protect_code)
+        script.load()
+        result = script.exports_sync.protect()
+        script.unload()
+        
+        return {"address": address, "size": size, "protection": protection, "success": result}
+
+    elif name == "frida_enumerate_ranges":
+        session_id = args["session_id"]
+        if session_id not in _session_cache:
+            raise ValueError(f"Session {session_id} not found")
+        
+        session = _session_cache[session_id]
+        protection = args.get("protection", "---")
+        
+        enum_code = f"""
+        rpc.exports = {{
+            enumerate: function() {{
+                return Process.enumerateRanges('{protection}').map(function(r) {{
+                    return {{
+                        base: r.base.toString(),
+                        size: r.size,
+                        protection: r.protection,
+                        file: r.file ? r.file.path : null
+                    }};
+                }});
+            }}
+        }};
+        """
+        
+        script = session.create_script(enum_code)
+        script.load()
+        ranges = script.exports_sync.enumerate()
+        script.unload()
+        
+        return {"ranges": ranges, "count": len(ranges)}
+
+    # NEW: Thread Operations
+    elif name == "frida_enumerate_threads":
+        session_id = args["session_id"]
+        if session_id not in _session_cache:
+            raise ValueError(f"Session {session_id} not found")
+        
+        session = _session_cache[session_id]
+        
+        enum_code = """
+        rpc.exports = {
+            enumerate: function() {
+                return Process.enumerateThreads().map(function(t) {
+                    return {
+                        id: t.id,
+                        state: t.state,
+                        context: t.context ? {
+                            pc: t.context.pc.toString(),
+                            sp: t.context.sp.toString()
+                        } : null
+                    };
+                });
+            }
+        };
+        """
+        
+        script = session.create_script(enum_code)
+        script.load()
+        threads = script.exports_sync.enumerate()
+        script.unload()
+        
+        return {"threads": threads, "count": len(threads)}
+
+    elif name == "frida_backtrace":
+        session_id = args["session_id"]
+        if session_id not in _session_cache:
+            raise ValueError(f"Session {session_id} not found")
+        
+        session = _session_cache[session_id]
+        limit = args.get("limit", 20)
+        
+        bt_code = f"""
+        rpc.exports = {{
+            backtrace: function() {{
+                var bt = Thread.backtrace(this.context, Backtracer.ACCURATE);
+                return bt.slice(0, {limit}).map(function(addr) {{
+                    var sym = DebugSymbol.fromAddress(addr);
+                    return {{
+                        address: addr.toString(),
+                        module: sym.moduleName,
+                        name: sym.name,
+                        fileName: sym.fileName,
+                        lineNumber: sym.lineNumber
+                    }};
+                }});
+            }}
+        }};
+        """
+        
+        script = session.create_script(bt_code)
+        script.load()
+        frames = script.exports_sync.backtrace()
+        script.unload()
+        
+        return {"frames": frames, "count": len(frames)}
+
+    # NEW: Symbol Resolution
+    elif name == "frida_debug_symbol":
+        session_id = args["session_id"]
+        if session_id not in _session_cache:
+            raise ValueError(f"Session {session_id} not found")
+        
+        session = _session_cache[session_id]
+        address = args.get("address")
+        name = args.get("name")
+        
+        if address:
+            sym_code = f"""
+            rpc.exports = {{
+                resolve: function() {{
+                    var sym = DebugSymbol.fromAddress(ptr('{address}'));
+                    return {{
+                        address: sym.address.toString(),
+                        name: sym.name,
+                        moduleName: sym.moduleName,
+                        fileName: sym.fileName,
+                        lineNumber: sym.lineNumber
+                    }};
+                }}
+            }};
+            """
+        elif name:
+            sym_code = f"""
+            rpc.exports = {{
+                resolve: function() {{
+                    var sym = DebugSymbol.fromName('{name}');
+                    return {{
+                        address: sym.address.toString(),
+                        name: sym.name,
+                        moduleName: sym.moduleName,
+                        fileName: sym.fileName,
+                        lineNumber: sym.lineNumber
+                    }};
+                }}
+            }};
+            """
+        else:
+            return {"error": "Must provide either address or name"}
+        
+        script = session.create_script(sym_code)
+        script.load()
+        result = script.exports_sync.resolve()
+        script.unload()
+        
+        return result
+
+    elif name == "frida_list_symbols":
+        session_id = args["session_id"]
+        if session_id not in _session_cache:
+            raise ValueError(f"Session {session_id} not found")
+        
+        session = _session_cache[session_id]
+        module = args["module"]
+        filter_pattern = args.get("filter", "")
+        
+        sym_code = f"""
+        rpc.exports = {{
+            list: function() {{
+                var mod = Process.findModuleByName('{module}');
+                if (!mod) return [];
+                var symbols = mod.enumerateSymbols();
+                var filter = '{filter_pattern}';
+                if (filter) {{
+                    symbols = symbols.filter(function(s) {{
+                        return s.name.indexOf(filter) !== -1;
+                    }});
+                }}
+                return symbols.slice(0, 500).map(function(s) {{
+                    return {{
+                        address: s.address.toString(),
+                        name: s.name,
+                        type: s.type,
+                        section: s.section ? s.section.id : null
+                    }};
+                }});
+            }}
+        }};
+        """
+        
+        script = session.create_script(sym_code)
+        script.load()
+        symbols = script.exports_sync.list()
+        script.unload()
+        
+        return {"symbols": symbols, "count": len(symbols)}
+
+    # NEW: Native Function Calling
+    elif name == "frida_native_function":
+        session_id = args["session_id"]
+        if session_id not in _session_cache:
+            raise ValueError(f"Session {session_id} not found")
+        
+        session = _session_cache[session_id]
+        address = args["address"]
+        return_type = args.get("return_type", "void")
+        arg_types = args.get("arg_types", [])
+        call_args = args.get("args", [])
+        
+        arg_types_js = json.dumps(arg_types)
+        call_args_js = json.dumps(call_args)
+        
+        call_code = f"""
+        rpc.exports = {{
+            call: function() {{
+                var addr;
+                var addrStr = '{address}';
+                if (addrStr.indexOf('!') !== -1) {{
+                    var parts = addrStr.split('!');
+                    addr = Module.findExportByName(parts[0], parts[1]);
+                }} else {{
+                    addr = ptr(addrStr);
+                }}
+                
+                var argTypes = {arg_types_js};
+                var fn = new NativeFunction(addr, '{return_type}', argTypes);
+                var args = {call_args_js};
+                var result = fn.apply(null, args);
+                return result ? result.toString() : null;
+            }}
+        }};
+        """
+        
+        script = session.create_script(call_code)
+        script.load()
+        result = script.exports_sync.call()
+        script.unload()
+        
+        return {"result": result, "address": address}
+
+    # NEW: CModule
+    elif name == "frida_cmodule":
+        session_id = args["session_id"]
+        if session_id not in _session_cache:
+            raise ValueError(f"Session {session_id} not found")
+        
+        session = _session_cache[session_id]
+        code = args["code"]
+        symbols = args.get("symbols", {})
+        
+        symbols_js = json.dumps(symbols)
+        code_escaped = json.dumps(code)
+        
+        cm_code = f"""
+        rpc.exports = {{
+            compile: function() {{
+                var cm = new CModule({code_escaped}, {symbols_js});
+                var exports = {{}};
+                for (var key in cm) {{
+                    if (typeof cm[key] === 'object' && cm[key].toString) {{
+                        exports[key] = cm[key].toString();
+                    }}
+                }}
+                return exports;
+            }}
+        }};
+        """
+        
+        script = session.create_script(cm_code)
+        script.load()
+        exports = script.exports_sync.compile()
+        # Note: keeping script loaded so CModule stays active
+        
+        script_id = f"cmodule_{id(script)}"
+        _script_cache[script_id] = {"script": script, "messages": []}
+        
+        return {"script_id": script_id, "exports": exports}
+
+    # NEW: ObjC Method Calling
+    elif name == "frida_objc_call_method":
+        session_id = args["session_id"]
+        if session_id not in _session_cache:
+            raise ValueError(f"Session {session_id} not found")
+        
+        session = _session_cache[session_id]
+        class_name = args["class_name"]
+        method_name = args["method_name"]
+        call_args = args.get("args", [])
+        is_static = args.get("static", True)
+        instance_handle = args.get("instance_handle")
+        
+        args_js = json.dumps(call_args)
+        
+        if is_static and not instance_handle:
+            call_code = f"""
+            rpc.exports = {{
+                call: function() {{
+                    if (!ObjC.available) return {{error: 'ObjC not available'}};
+                    var cls = ObjC.classes['{class_name}'];
+                    if (!cls) return {{error: 'Class not found'}};
+                    var args = {args_js};
+                    var result = cls['{method_name}'].apply(cls, args);
+                    return {{result: result ? result.toString() : null}};
+                }}
+            }};
+            """
+        else:
+            call_code = f"""
+            rpc.exports = {{
+                call: function() {{
+                    if (!ObjC.available) return {{error: 'ObjC not available'}};
+                    var instance = ObjC.Object(ptr('{instance_handle}'));
+                    var args = {args_js};
+                    var result = instance['{method_name}'].apply(instance, args);
+                    return {{result: result ? result.toString() : null}};
+                }}
+            }};
+            """
+        
+        script = session.create_script(call_code)
+        script.load()
+        result = script.exports_sync.call()
+        script.unload()
+        
+        return result
+
+    # NEW: Java DEX Loading
+    elif name == "frida_java_load_dex":
+        session_id = args["session_id"]
+        if session_id not in _session_cache:
+            raise ValueError(f"Session {session_id} not found")
+        
+        session = _session_cache[session_id]
+        dex_path = args["dex_path"]
+        class_name = args.get("class_name")
+        
+        load_code = f"""
+        rpc.exports = {{
+            load: function() {{
+                var result = {{}};
+                Java.perform(function() {{
+                    var dexPath = '{dex_path}';
+                    var DexClassLoader = Java.use('dalvik.system.DexClassLoader');
+                    var File = Java.use('java.io.File');
+                    var cacheDir = Java.use('android.app.ActivityThread').currentApplication().getCacheDir().getAbsolutePath();
+                    
+                    var loader = DexClassLoader.$new(dexPath, cacheDir, null, Java.use('java.lang.ClassLoader').getSystemClassLoader());
+                    result.loader = loader.toString();
+                    
+                    var className = '{class_name or ""}';
+                    if (className) {{
+                        var loadedClass = loader.loadClass(className);
+                        result.class = loadedClass.toString();
+                    }}
+                }});
+                return result;
+            }}
+        }};
+        """
+        
+        script = session.create_script(load_code)
+        script.load()
+        await asyncio.sleep(0.5)
+        result = script.exports_sync.load()
+        script.unload()
+        
+        return result
+
+    # NEW: Socket Operations
+    elif name == "frida_socket_connect":
+        session_id = args["session_id"]
+        if session_id not in _session_cache:
+            raise ValueError(f"Session {session_id} not found")
+        
+        session = _session_cache[session_id]
+        host = args["host"]
+        port = args["port"]
+        sock_type = args.get("type", "tcp")
+        
+        socket_code = f"""
+        rpc.exports = {{
+            connect: function() {{
+                var socket = Socket.connect({{
+                    family: 'ipv4',
+                    host: '{host}',
+                    port: {port}
+                }});
+                return {{
+                    localAddress: socket.localAddress,
+                    peerAddress: socket.peerAddress,
+                    fd: socket.fd
+                }};
+            }}
+        }};
+        """
+        
+        script = session.create_script(socket_code)
+        script.load()
+        result = script.exports_sync.connect()
+        script.unload()
+        
+        return result
 
     else:
         raise ValueError(f"Unknown tool: {name}")
