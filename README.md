@@ -4,7 +4,7 @@ A comprehensive MCP (Model Context Protocol) server that exposes the full power 
 
 ## Features
 
-**41 tools** covering all major Frida capabilities:
+**43 tools** covering all major Frida capabilities:
 
 ### Device & Process Management
 - `frida_list_devices` - List all available Frida devices
