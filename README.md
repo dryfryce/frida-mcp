@@ -4,7 +4,7 @@ A comprehensive MCP (Model Context Protocol) server that exposes the full power 
 
 ## Features
 
-**43 tools** covering all major Frida capabilities:
+**55 tools** covering all major Frida capabilities:
 
 ### Device & Process Management
 - `frida_list_devices` - List all available Frida devices
@@ -159,3 +159,29 @@ For mobile device support:
 ## License
 
 MIT
+
+### Memory Management (NEW)
+- `frida_memory_alloc` - Allocate memory in target process
+- `frida_memory_protect` - Change memory page permissions
+- `frida_enumerate_ranges` - List memory ranges/maps
+
+### Thread Operations (NEW)
+- `frida_enumerate_threads` - List all threads with state
+- `frida_backtrace` - Get stack backtrace
+
+### Symbol Resolution (NEW)
+- `frida_debug_symbol` - Resolve symbols from address/name
+- `frida_list_symbols` - List debug symbols from module
+
+### Native Calling (NEW)
+- `frida_native_function` - Call native functions directly
+- `frida_cmodule` - Compile and load inline C code
+
+### ObjC Extended (NEW)
+- `frida_objc_call_method` - Call ObjC methods on class/instance
+
+### Java Extended (NEW)
+- `frida_java_load_dex` - Load DEX files dynamically
+
+### Network (NEW)
+- `frida_socket_connect` - Create socket connections from process
